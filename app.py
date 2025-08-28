@@ -15,48 +15,46 @@ def audit():
 
     try:
         loader = instaloader.Instaloader()
+
+        # Optional: log in here if needed
+        # loader.login("your_username", "your_password")
+
         profile = instaloader.Profile.from_username(loader.context, username)
 
+        # ==== Followers Growth Simulation ====
+        today = datetime.date.today()
+        followers_growth = [
+            {
+                "date": (today - datetime.timedelta(days=i)).strftime("%d/%m"),
+                "followers": profile.followers - i * 10  # just simulating drop
+            }
+            for i in reversed(range(6))
+        ]
+
+        # ==== Recent Posts Analysis ====
         recent_posts = []
         total_likes = 0
         total_comments = 0
 
-        posts_to_check = 6  # Number of recent posts to analyze
-
         for post in profile.get_posts():
-            if posts_to_check == 0:
+            if len(recent_posts) >= 6:
                 break
 
-            caption = post.caption or ""
-            hashtags = post.caption_hashtags or []
-            likes = post.likes
-            comments = post.comments
-            date = post.date.strftime("%d/%m/%Y")
-
-            # Build post dictionary
             recent_posts.append({
-                "date": date,
-                "caption": caption[:100],
-                "likes": likes,
-                "comments": comments,
-                "hashtags": hashtags
+                "date": post.date.strftime("%d/%m/%Y"),
+                "caption": post.caption[:100] if post.caption else "",
+                "likes": post.likes,
+                "comments": post.comments,
+                "hashtags": post.caption_hashtags or []
             })
 
-            total_likes += likes
-            total_comments += comments
-            posts_to_check -= 1
+            total_likes += post.likes
+            total_comments += post.comments
 
-        # Engagement trend → average likes/comments per post
         avg_likes = total_likes / len(recent_posts) if recent_posts else 0
         avg_comments = total_comments / len(recent_posts) if recent_posts else 0
 
-        # Simulated follower growth - ideally, track daily and save it somewhere
-        today = datetime.date.today()
-        followers_growth = [
-            {"date": (today - datetime.timedelta(days=i)).strftime("%d/%m"), "followers": profile.followers - i*10}
-            for i in reversed(range(6))
-        ]
-
+        # ==== Final Response ====
         data = {
             "username": profile.username,
             "full_name": profile.full_name,
@@ -76,7 +74,8 @@ def audit():
         return jsonify(data)
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print("⚠️ ERROR during audit:", str(e))
+        return jsonify({ "error": "Failed to fetch data", "details": str(e) }), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
