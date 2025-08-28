@@ -3,66 +3,69 @@ from flask_cors import CORS
 import pytesseract
 from PIL import Image
 import tempfile
-import os
-
-# OPTIONAL: use .env for future login support
-from dotenv import load_dotenv
-load_dotenv()
+import re
 
 app = Flask(__name__)
 CORS(app)
 
-# 🔍 Home route
+def extract_stats(text):
+    """ Extracts common stats like followers, following, posts, connections """
+    def extract(pattern):
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            value = match.group(1).replace(',', '')
+            try:
+                if "k" in value.lower():
+                    return int(float(value.lower().replace('k', '')) * 1000)
+                elif "m" in value.lower():
+                    return int(float(value.lower().replace('m', '')) * 1000000)
+                return int(value)
+            except:
+                return None
+        return None
+
+    return {
+        "followers": extract(r'([\d.,]+)\s*followers?'),
+        "following": extract(r'([\d.,]+)\s*following'),
+        "posts": extract(r'([\d.,]+)\s*posts?'),
+        "connections": extract(r'([\d.,]+)\s*connections'),
+        "friends": extract(r'([\d.,]+)\s*friends')
+    }
+
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"message": "🟢 Backend is running. Upload screenshot to /upload"})
+    return jsonify({"message": "🟢 Backend is live. Upload to /upload"})
 
-# 📤 Accepts image + analyzes using OCR
 @app.route("/upload", methods=["POST"])
 def upload_image():
-    try:
-        if 'image' not in request.files:
-            return jsonify({"error": "No image file found"}), 400
+    if 'image' not in request.files:
+        return jsonify({"error": "No image file found"}), 400
 
-        uploaded_file = request.files['image']
+    uploaded_file = request.files['image']
 
-        if uploaded_file.filename == "":
-            return jsonify({"error": "Empty file name"}), 400
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp:
+        uploaded_file.save(temp.name)
+        image = Image.open(temp.name)
 
-        # Save image temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp:
-            uploaded_file.save(temp.name)
-            image = Image.open(temp.name)
+    extracted_text = pytesseract.image_to_string(image)
+    lower = extracted_text.lower()
 
-        # 🤖 Run OCR using pytesseract
-        extracted_text = pytesseract.image_to_string(image)
+    # Platform detection
+    if 'followers' in lower and 'following' in lower:
+        platform = "instagram"
+    elif 'connections' in lower or 'linkedin' in lower:
+        platform = "linkedin"
+    elif 'friends' in lower or 'likes' in lower:
+        platform = "facebook"
+    else:
+        platform = "unknown"
 
-        # 🧠 Very basic platform detection
-        text_lower = extracted_text.lower()
+    # Stat extraction
+    stats = extract_stats(lower)
 
-        if "followers" in text_lower and "following" in text_lower:
-            platform = "instagram"
-        elif "connections" in text_lower or "linkedin" in text_lower:
-            platform = "linkedin"
-        elif "friends" in text_lower or "likes" in text_lower:
-            platform = "facebook"
-        else:
-            platform = "unknown"
-
-        # You can build smarter field extraction here (followers count, name, etc.)
-        response = {
-            "platform": platform,
-            "raw_text": extracted_text,
-            "message": f"{platform.title()} profile detected and analyzed ✅"
-        }
-
-        return jsonify(response)
-
-    except Exception as e:
-        print("❌ Error:", str(e))
-        return jsonify({"error": "Failed to analyze image", "details": str(e)}), 500
-
-
-# ✅ Run locally or via gunicorn
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    return jsonify({
+        "platform": platform,
+        "raw_text": extracted_text,
+        "extracted": stats,
+        "message": f"{platform.title()} profile analyzed ✅"
+    })
