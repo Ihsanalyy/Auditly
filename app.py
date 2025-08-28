@@ -16,8 +16,8 @@ def audit():
     try:
         loader = instaloader.Instaloader()
 
-        # Optional: Add login (must be safe)
-        # loader.login("your_instagram_username", "your_password")
+        # Use login if needed:
+        # loader.login("your_username", "your_password")
 
         profile = instaloader.Profile.from_username(loader.context, username)
 
@@ -25,31 +25,30 @@ def audit():
         followers_growth = [
             {
                 "date": (today - datetime.timedelta(days=i)).strftime("%d/%m"),
-                "followers": profile.followers - i * 12  # example growth
+                "followers": profile.followers - i * 12
             }
             for i in reversed(range(6))
         ]
 
         recent_posts = []
-        total_likes = 0
-        total_comments = 0
+        likes_total = 0
+        comments_total = 0
 
         for post in profile.get_posts():
             if len(recent_posts) >= 6:
                 break
-
             recent_posts.append({
                 "date": post.date.strftime("%d/%m/%Y"),
                 "caption": post.caption[:100] if post.caption else "",
                 "likes": post.likes,
                 "comments": post.comments,
-                "hashtags": post.caption_hashtags
+                "hashtags": post.caption_hashtags or []
             })
-            total_likes += post.likes
-            total_comments += post.comments
+            likes_total += post.likes
+            comments_total += post.comments
 
-        avg_likes = total_likes / len(recent_posts) if recent_posts else 0
-        avg_comments = total_comments / len(recent_posts) if recent_posts else 0
+        avg_likes = int(likes_total / len(recent_posts)) if recent_posts else 0
+        avg_comments = int(comments_total / len(recent_posts)) if recent_posts else 0
 
         return jsonify({
             "username": profile.username,
@@ -61,16 +60,16 @@ def audit():
             "posts": profile.mediacount,
             "followers_growth": followers_growth,
             "engagement_trend": {
-                "average_likes": int(avg_likes),
-                "average_comments": int(avg_comments)
+                "average_likes": avg_likes,
+                "average_comments": avg_comments
             },
             "recent_posts": recent_posts
         })
-
+        
     except Exception as e:
-        print("⚠️ BACKEND ERROR:", str(e))  # Debug in Render logs
+        print("❌ ERROR:", str(e))
         return jsonify({
-            "error": "Backend failed",
+            "error": "Failed to fetch data",
             "details": str(e)
         }), 500
 
