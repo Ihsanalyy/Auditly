@@ -1,7 +1,5 @@
-flask
+Flask
 flask-cors
-requests
-flask
-gunicorn
 instaloader
+gunicorn
 
