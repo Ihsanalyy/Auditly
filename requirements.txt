@@ -1,8 +1,8 @@
 Flask
 flask-cors
+gunicorn
 pytesseract
 Pillow
-werkzeug
 python-dotenv
 
 
