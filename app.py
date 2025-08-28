@@ -5,9 +5,7 @@ import datetime
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env
 load_dotenv()
-
 app = Flask(__name__)
 CORS(app)
 
@@ -20,43 +18,39 @@ def audit():
 
     try:
         loader = instaloader.Instaloader()
-
-        # 🔐 Use read-only login with your dummy account
-        ig_username = os.getenv("IG_USERNAME")
-        ig_password = os.getenv("IG_PASSWORD")
-        loader.login(ig_username, ig_password)
-
+        
+        # ✅ LOGIN using your own backend IG viewer account
+        loader.login(os.getenv("IG_USERNAME"), os.getenv("IG_PASSWORD"))
+        
         profile = instaloader.Profile.from_username(loader.context, username)
-
-        # Basic info
         today = datetime.date.today()
+
         followers_growth = [
-            {
-                "date": (today - datetime.timedelta(days=i)).strftime("%d/%m"),
-                "followers": profile.followers - i * 12  # Simulated
-            }
+            {"date": (today - datetime.timedelta(days=i)).strftime("%d/%m"),
+             "followers": profile.followers - i * 10}
             for i in reversed(range(7))
         ]
 
-        # Recent posts
-        recent_posts = []
+        posts = []
         total_likes = 0
         total_comments = 0
+
         for post in profile.get_posts():
-            if len(recent_posts) >= 6:
+            if len(posts) >= 6:
                 break
-            recent_posts.append({
+            posts.append({
                 "date": post.date.strftime("%d/%m/%Y"),
-                "caption": post.caption[:150] if post.caption else "",
+                "caption": post.caption[:100] if post.caption else "",
                 "likes": post.likes,
                 "comments": post.comments,
                 "hashtags": post.caption_hashtags or []
             })
+
             total_likes += post.likes
             total_comments += post.comments
 
-        avg_likes = int(total_likes / len(recent_posts)) if recent_posts else 0
-        avg_comments = int(total_comments / len(recent_posts)) if recent_posts else 0
+        avg_likes = int(total_likes / len(posts)) if posts else 0
+        avg_comments = int(total_comments / len(posts)) if posts else 0
 
         return jsonify({
             "username": profile.username,
@@ -71,11 +65,10 @@ def audit():
                 "average_likes": avg_likes,
                 "average_comments": avg_comments
             },
-            "recent_posts": recent_posts
+            "recent_posts": posts
         })
 
     except Exception as e:
-        print("❌ ERROR:", str(e))
         return jsonify({
             "error": "Unable to fetch profile",
             "details": str(e)
