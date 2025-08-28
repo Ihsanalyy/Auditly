@@ -16,22 +16,20 @@ def audit():
     try:
         loader = instaloader.Instaloader()
 
-        # Optional: log in here if needed
-        # loader.login("your_username", "your_password")
+        # Optional: Add login (must be safe)
+        # loader.login("your_instagram_username", "your_password")
 
         profile = instaloader.Profile.from_username(loader.context, username)
 
-        # ==== Followers Growth Simulation ====
         today = datetime.date.today()
         followers_growth = [
             {
                 "date": (today - datetime.timedelta(days=i)).strftime("%d/%m"),
-                "followers": profile.followers - i * 10  # just simulating drop
+                "followers": profile.followers - i * 12  # example growth
             }
             for i in reversed(range(6))
         ]
 
-        # ==== Recent Posts Analysis ====
         recent_posts = []
         total_likes = 0
         total_comments = 0
@@ -45,17 +43,15 @@ def audit():
                 "caption": post.caption[:100] if post.caption else "",
                 "likes": post.likes,
                 "comments": post.comments,
-                "hashtags": post.caption_hashtags or []
+                "hashtags": post.caption_hashtags
             })
-
             total_likes += post.likes
             total_comments += post.comments
 
         avg_likes = total_likes / len(recent_posts) if recent_posts else 0
         avg_comments = total_comments / len(recent_posts) if recent_posts else 0
 
-        # ==== Final Response ====
-        data = {
+        return jsonify({
             "username": profile.username,
             "full_name": profile.full_name,
             "bio": profile.biography,
@@ -69,13 +65,14 @@ def audit():
                 "average_comments": int(avg_comments)
             },
             "recent_posts": recent_posts
-        }
-
-        return jsonify(data)
+        })
 
     except Exception as e:
-        print("⚠️ ERROR during audit:", str(e))
-        return jsonify({ "error": "Failed to fetch data", "details": str(e) }), 500
+        print("⚠️ BACKEND ERROR:", str(e))  # Debug in Render logs
+        return jsonify({
+            "error": "Backend failed",
+            "details": str(e)
+        }), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
